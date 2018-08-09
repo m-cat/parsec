@@ -39,6 +39,8 @@ extern crate ffi_utils;
 #[macro_use]
 extern crate log;
 extern crate maidsafe_utilities;
+#[cfg(all(test, target_os = "linux"))]
+extern crate procinfo;
 #[macro_use]
 extern crate quick_error;
 extern crate rand;

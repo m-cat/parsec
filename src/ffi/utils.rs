@@ -105,3 +105,44 @@ where
         Err(res)
     }
 }
+
+#[cfg(test)]
+pub(crate) fn memory_check<F>(test: &str, num_iterations: usize, f: F)
+where
+    F: FnOnce() + Copy,
+{
+    #[cfg(target_os = "linux")]
+    use procinfo;
+
+    // Measure the amount of baseline memory.
+
+    #[cfg(target_os = "linux")]
+    let memory_before = {
+        let memory_before = procinfo::pid::statm_self().unwrap().resident;
+        memory_before
+    };
+
+    #[cfg(not(target_os = "linux"))]
+    println!("[{}] Linux required, skipping memory check.\n", test);
+
+    for _ in 1..num_iterations {
+        f();
+    }
+
+    // Measure the amount of memory in use at the end.
+    #[cfg(target_os = "linux")]
+    {
+        let memory_after = procinfo::pid::statm_self().unwrap().resident;
+        println!(
+            "\n[{}] Memory before: {}, memory after: {}",
+            test, memory_before, memory_after
+        );
+        if memory_before < memory_after {
+            println!(
+                "[{}] Warning: memory grew during the execution of this test. This is expected \
+                 if running sanitizers, otherwise there is probably a leak.",
+                test
+            );
+        }
+    }
+}

@@ -83,7 +83,7 @@ pub unsafe extern "C" fn vote_is_valid(
     })
 }
 
-/// Creates a prof from this vote and writes it to `o_proof`.
+/// Creates a proof from this vote and writes it to `o_proof`.
 /// Returns error if this vote is not valid (i.e. if !vote_is_valid()).
 #[no_mangle]
 pub unsafe extern "C" fn vote_create_proof(
@@ -108,46 +108,41 @@ pub unsafe extern "C" fn vote_free(vote: *const Vote) -> i32 {
 
 #[cfg(test)]
 mod tests {
-    use ffi::{self, utils};
+    use ffi::*;
 
     #[test]
-    fn ffi_vote_smoke_test() {
-        let secret_id_bytes = b"hello";
-        let secret_id = unsafe {
-            unwrap!(utils::get_1(|out| ffi::secret_id_from_bytes(
-                secret_id_bytes.as_ptr(),
-                secret_id_bytes.len(),
-                out
-            )))
-        };
+    fn ffi_vote_new() {
+        utils::memory_check("ffi_vote_new", 10000, || {
+            let secret_id_bytes = b"hello";
+            let payload = b"testing";
 
-        let payload = b"testing";
-        let vote = unsafe {
-            unwrap!(utils::get_1(|out| ffi::vote_new(
-                secret_id,
-                payload.as_ptr(),
-                payload.len(),
-                out
-            )))
-        };
+            unsafe {
+                let secret_id = unwrap!(utils::get_1(|out| secret_id_from_bytes(
+                    secret_id_bytes.as_ptr(),
+                    secret_id_bytes.len(),
+                    out
+                )));
 
-        let result = unsafe {
-            unwrap!(utils::get_vec_u8(|out, len| ffi::vote_payload(
-                vote, out, len
-            )))
-        };
-        assert_eq!(result, payload);
+                let vote = unwrap!(utils::get_1(|out| vote_new(
+                    secret_id,
+                    payload.as_ptr(),
+                    payload.len(),
+                    out
+                )));
 
-        // let public_id =
-        //     unsafe { unwrap!(utils::get_1(|out| ffi::secret_id_public(secret_id, out))) };
+                let result = unwrap!(utils::get_vec_u8(|out, len| vote_payload(vote, out, len)));
+                assert_eq!(result, payload);
 
-        // let is_valid =
-        //     unsafe { unwrap!(utils::get_1(|out| ffi::vote_is_valid(vote, public_id, out))) };
-        // assert_eq!(is_valid, 1);
+                // let public_id =
+                //     unsafe { unwrap!(utils::get_1(|out| secret_id_public(secret_id, out))) };
 
-        unsafe {
-            unwrap!(utils::get_0(|| ffi::secret_id_free(secret_id)));
-            unwrap!(utils::get_0(|| ffi::vote_free(vote)));
-        }
+                // let is_valid =
+                //     unsafe { unwrap!(utils::get_1(|out| vote_is_valid(vote, public_id, out))) };
+                // assert_eq!(is_valid, 1);
+
+                unwrap!(utils::get_0(|| secret_id_free(secret_id)));
+                unwrap!(utils::get_0(|| vote_free(vote)));
+            }
+        })
     }
 }
