@@ -7,7 +7,7 @@
 // permissions and limitations relating to use of the SAFE Network Software.
 
 use error::Error;
-use ffi::{utils, PeerId, NetworkEvent};
+use ffi::{utils, NetworkEvent, PeerId};
 use gossip::{Request as ParsecReq, Response as ParsecResp};
 
 /// Opaque structure holding a request from a peer.

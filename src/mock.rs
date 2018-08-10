@@ -18,15 +18,15 @@ const NAMES: &[&str] = &[
 
 /// **NOT FOR PRODUCTION USE**: Mock signature type.
 #[derive(Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Debug)]
-pub struct Signature(String);
+pub struct Signature(Vec<u8>);
 
 impl Signature {
-    pub fn new(sig: &str) -> Self {
-        Signature(sig.to_string())
+    pub fn from_bytes(sig: &[u8]) -> Self {
+        Signature(Vec::from(sig))
     }
 
     pub fn as_bytes(&self) -> &[u8] {
-        self.0.as_bytes()
+        &self.0
     }
 }
 
@@ -56,6 +56,7 @@ impl Debug for PeerId {
 
 impl PublicId for PeerId {
     type Signature = Signature;
+
     fn verify_signature(&self, _signature: &Self::Signature, _data: &[u8]) -> bool {
         true
     }
@@ -63,11 +64,12 @@ impl PublicId for PeerId {
 
 impl SecretId for PeerId {
     type PublicId = PeerId;
+
     fn public_id(&self) -> &Self::PublicId {
         &self
     }
     fn sign_detached(&self, _data: &[u8]) -> Signature {
-        Signature(format!("of {:?}", self))
+        Signature(Vec::from(format!("of {:?}", self)))
     }
 }
 

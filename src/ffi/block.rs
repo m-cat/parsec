@@ -11,8 +11,8 @@
 use block::Block as NativeBlock;
 use error::Error;
 use ffi::utils;
-use ffi_utils;
 use ffi::{NetworkEvent, PeerId, Proof, ProofList, PublicId, Vote};
+use ffi_utils;
 use std::collections::BTreeMap;
 use std::slice;
 
@@ -83,11 +83,12 @@ pub unsafe extern "C" fn block_proofs(block: *const Block, o_proofs: *mut *const
             .collect();
 
         let (ptr, len, cap) = ffi_utils::vec_into_raw_parts(proofs);
-        *o_proofs = Box::into_raw(Box::new(ProofList {
+        let proof_list = ProofList {
             proofs: ptr as *const _,
             proofs_len: len,
             proofs_cap: cap,
-        }));
+        };
+        *o_proofs = Box::into_raw(Box::new(proof_list));
 
         Ok(())
     })
@@ -166,6 +167,7 @@ mod tests {
                 let mut public_ids = Vec::with_capacity(ids_count);
                 let mut votes = Vec::with_capacity(ids_count);
 
+                // Set up public ids
                 for id in &ids {
                     let id_bytes = id.as_bytes();
                     public_ids.push(unwrap!(utils::get_1(|id| public_id_from_bytes(
@@ -175,6 +177,7 @@ mod tests {
                     ))));
                 }
 
+                // Set up secret ids
                 for id in &ids {
                     let id_bytes = id.as_bytes();
                     let secret_id = unwrap!(utils::get_1(|id| secret_id_from_bytes(
@@ -195,7 +198,6 @@ mod tests {
 
                 // Create a new block
                 let mut block = mem::zeroed();
-
                 assert_ffi!(block_new(
                     payload.as_ptr(),
                     payload.len(),
@@ -228,15 +230,29 @@ mod tests {
 
                 let proofs = slice::from_raw_parts((*proof_list).proofs, (*proof_list).proofs_len);
 
-                for proof in proofs {
+                // Check proofs
+                for (i, proof) in proofs.iter().enumerate() {
                     let is_valid = unwrap!(utils::get_1(|out| proof_is_valid(
-                        proof,
+                        *proof,
                         payload.as_ptr(),
                         payload.len(),
                         out
                     )));
-
                     assert_eq!(is_valid, 1);
+
+                    let public_id = unwrap!(utils::get_1(|out| proof_public_id(*proof, out)));
+                    assert_eq!(
+                        unwrap!(utils::get_vec_u8(|out, len| public_id_as_bytes(
+                            public_id, out, len
+                        ))),
+                        unwrap!(utils::get_vec_u8(|out, len| public_id_as_bytes(
+                            public_ids[i],
+                            out,
+                            len
+                        ))),
+                    );
+
+                    unwrap!(utils::get_0(|| public_id_free(public_id)));
                 }
 
                 // Free memory

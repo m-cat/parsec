@@ -77,7 +77,7 @@ where
 {
     use std::mem;
 
-    let mut output: T = mem::uninitialized();
+    let mut output: T = mem::zeroed();
     let res = f(&mut output);
 
     if res == 0 {
@@ -95,8 +95,8 @@ where
 {
     use std::mem;
 
-    let mut ptr: *const u8 = mem::uninitialized();
-    let mut len: usize = mem::uninitialized();
+    let mut ptr: *const u8 = mem::zeroed();
+    let mut len: usize = mem::zeroed();
     let res = f(&mut ptr, &mut len);
 
     if res == 0 {

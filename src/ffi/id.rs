@@ -27,15 +27,31 @@ pub struct PublicId(pub(crate) PeerId);
 /// `o_public_id` must be freed using `public_id_free`.
 #[no_mangle]
 pub unsafe extern "C" fn public_id_from_bytes(
-    id: *const u8,
-    id_len: usize,
+    bytes: *const u8,
+    bytes_len: usize,
     o_public_id: *mut *const PublicId,
 ) -> i32 {
     utils::catch_unwind_err_set(|| -> Result<_, Error> {
-        let public_id = slice::from_raw_parts(id, id_len);
+        let public_id = slice::from_raw_parts(bytes, bytes_len);
         let peer_id = PeerId::new(str::from_utf8(public_id)?);
 
         *o_public_id = Box::into_raw(Box::new(PublicId(peer_id)));
+        Ok(())
+    })
+}
+
+/// Returns the bytes contained in `public_id`.
+#[no_mangle]
+pub unsafe extern "C" fn public_id_as_bytes(
+    public_id: *const PublicId,
+    o_bytes: *mut *const u8,
+    o_bytes_len: *mut usize,
+) -> i32 {
+    utils::catch_unwind_err_set(|| -> Result<_, Error> {
+        let bytes = (*public_id).0.as_bytes();
+
+        *o_bytes = bytes.as_ptr();
+        *o_bytes_len = bytes.len();
         Ok(())
     })
 }
@@ -55,15 +71,31 @@ pub unsafe extern "C" fn public_id_free(public_id: *const PublicId) -> i32 {
 /// `o_secret_id` must be freed using `secret_id_free`.
 #[no_mangle]
 pub unsafe extern "C" fn secret_id_from_bytes(
-    id: *const u8,
-    id_len: usize,
+    bytes: *const u8,
+    bytes_len: usize,
     o_secret_id: *mut *const SecretId,
 ) -> i32 {
     utils::catch_unwind_err_set(|| -> Result<(), Error> {
-        let public_id = slice::from_raw_parts(id, id_len);
+        let public_id = slice::from_raw_parts(bytes, bytes_len);
         let peer_id = PeerId::new(str::from_utf8(public_id)?);
 
         *o_secret_id = Box::into_raw(Box::new(SecretId(peer_id)));
+        Ok(())
+    })
+}
+
+/// Returns the bytes contained in `secret_id`.
+#[no_mangle]
+pub unsafe extern "C" fn secret_id_as_bytes(
+    secret_id: *const SecretId,
+    o_bytes: *mut *const u8,
+    o_bytes_len: *mut usize,
+) -> i32 {
+    utils::catch_unwind_err_set(|| -> Result<_, Error> {
+        let bytes = (*secret_id).0.as_bytes();
+
+        *o_bytes = bytes.as_ptr();
+        *o_bytes_len = bytes.len();
         Ok(())
     })
 }
@@ -84,6 +116,8 @@ pub unsafe extern "C" fn secret_id_free(secret_id: *const SecretId) -> i32 {
 pub struct Proof(pub(crate) NativeProof<PeerId>);
 
 /// Returns a public ID to `o_public_id` associated with a `proof`.
+///
+/// `o_public_id` must be freed using `public_id_free`.
 #[no_mangle]
 pub unsafe extern "C" fn proof_public_id(
     proof: *const Proof,
@@ -92,7 +126,8 @@ pub unsafe extern "C" fn proof_public_id(
     utils::catch_unwind_err_set(|| -> Result<_, Error> {
         let native_public_id = (*proof).0.public_id().clone();
 
-        *o_public_id = Box::into_raw(Box::new(PublicId(native_public_id)));
+        let public_id = PublicId(native_public_id);
+        *o_public_id = Box::into_raw(Box::new(public_id));
         Ok(())
     })
 }
@@ -150,7 +185,7 @@ pub unsafe extern "C" fn proof_free(proof: *const Proof) -> i32 {
 #[derive(Debug)]
 pub struct ProofList {
     /// Pointer to a sequential list of proofs.
-    pub proofs: *const Proof,
+    pub proofs: *const *const Proof,
     /// Size of the proofs list.
     pub proofs_len: usize,
     /// Internal implementation detail (Rust vector capacity).

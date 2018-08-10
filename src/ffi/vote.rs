@@ -121,6 +121,7 @@ mod tests {
     fn ffi_vote_new() {
         utils::memory_check("ffi_vote_new", 10000, || {
             let secret_id_bytes = b"hello";
+            let public_id_bytes = b"howdy";
             let payload = b"testing";
 
             unsafe {
@@ -140,14 +141,17 @@ mod tests {
                 let result = unwrap!(utils::get_vec_u8(|out, len| vote_payload(vote, out, len)));
                 assert_eq!(result, payload);
 
-                // let public_id =
-                //     unsafe { unwrap!(utils::get_1(|out| secret_id_public(secret_id, out))) };
+                let public_id = unwrap!(utils::get_1(|out| public_id_from_bytes(
+                    public_id_bytes.as_ptr(),
+                    public_id_bytes.len(),
+                    out
+                )));
 
-                // let is_valid =
-                //     unsafe { unwrap!(utils::get_1(|out| vote_is_valid(vote, public_id, out))) };
-                // assert_eq!(is_valid, 1);
+                let is_valid = unwrap!(utils::get_1(|out| vote_is_valid(vote, public_id, out)));
+                assert_eq!(is_valid, 1);
 
                 unwrap!(utils::get_0(|| secret_id_free(secret_id)));
+                unwrap!(utils::get_0(|| public_id_free(public_id)));
                 unwrap!(utils::get_0(|| vote_free(vote)));
             }
         })
