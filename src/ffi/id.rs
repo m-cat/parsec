@@ -6,15 +6,25 @@
 // KIND, either express or implied. Please review the Licences for the specific language governing
 // permissions and limitations relating to use of the SAFE Network Software.
 
-use super::{PublicId, SecretId};
 use error::Error;
 use ffi::utils;
 use id::Proof as NativeProof;
 use mock::PeerId;
 use std::{slice, str};
 
+/// Secret peer signing key.
+///
+/// Should be deallocated with `secret_id_free`.
+pub struct SecretId(pub(crate) PeerId);
+/// Public peer signing key.
+///
+/// Should be deallocated with `public_id_free`.
+pub struct PublicId(pub(crate) PeerId);
+
 /// Creates a public ID from raw bytes pointed by `id` with a size `id_len`.
-/// Returns the opaque pointer to the `o_public_id`.
+/// Returns the opaque pointer to `o_public_id`.
+///
+/// `o_public_id` must be freed using `public_id_free`.
 #[no_mangle]
 pub unsafe extern "C" fn public_id_from_bytes(
     id: *const u8,
@@ -41,6 +51,8 @@ pub unsafe extern "C" fn public_id_free(public_id: *const PublicId) -> i32 {
 
 /// Creates a secret ID from raw bytes pointed by `id` with a size `id_len`.
 /// Returns the opaque pointer to the `o_secret_id`.
+///
+/// `o_secret_id` must be freed using `secret_id_free`.
 #[no_mangle]
 pub unsafe extern "C" fn secret_id_from_bytes(
     id: *const u8,
@@ -66,6 +78,8 @@ pub unsafe extern "C" fn secret_id_free(secret_id: *const SecretId) -> i32 {
 }
 
 /// Serves as an opaque pointer to `Proof` struct.
+///
+/// Should be deallocated with `proof_free`.
 #[derive(Debug)]
 pub struct Proof(pub(crate) NativeProof<PeerId>);
 
@@ -130,6 +144,7 @@ pub unsafe extern "C" fn proof_free(proof: *const Proof) -> i32 {
 }
 
 /// Container for a list of proofs.
+///
 /// Should be deallocated with `proof_list_free`.
 #[repr(C)]
 #[derive(Debug)]
@@ -153,9 +168,10 @@ pub unsafe extern "C" fn proof_list_free(proof_list: *const ProofList) -> i32 {
         );
 
         for proof in vec {
-            let _ = proof_free(proof); // TODO: unused result
+            let _ = proof_free(proof);
         }
 
+        let _ = Box::from_raw(proof_list as *mut ProofList);
         Ok(())
     })
 }

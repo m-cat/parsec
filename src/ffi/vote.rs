@@ -13,9 +13,13 @@ use std::slice;
 use vote::Vote as NativeVote;
 
 /// Serves as an opaque pointer to `Vote` struct.
+///
+/// Should be deallocated with `vote_free`.
 pub struct Vote(pub(crate) NativeVote<NetworkEvent, PeerId>);
 
 /// Creates a vote for the given `payload` and writes it to `o_vote`.
+///
+/// Should be deallocated with `vote_free`.
 #[no_mangle]
 pub unsafe extern "C" fn vote_new(
     secret_id: *const SecretId,
@@ -66,6 +70,7 @@ pub unsafe extern "C" fn vote_signature(
 }
 
 /// Validates this vote's signature and payload against the given public ID.
+/// Returns 0 (false) or 1 (true) in `o_is_valid`.
 #[no_mangle]
 pub unsafe extern "C" fn vote_is_valid(
     vote: *const Vote,
@@ -85,6 +90,8 @@ pub unsafe extern "C" fn vote_is_valid(
 
 /// Creates a proof from this vote and writes it to `o_proof`.
 /// Returns error if this vote is not valid (i.e. if !vote_is_valid()).
+///
+/// Should be deallocated with `proof_free`.
 #[no_mangle]
 pub unsafe extern "C" fn vote_create_proof(
     vote: *const Vote,

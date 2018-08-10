@@ -78,32 +78,24 @@ pub mod block;
 pub mod error;
 /// Functions defining public and private identity traits and objects.
 pub mod id;
+/// Message objects.
+pub mod message;
 /// Functions defining public interface for core Parsec functions.
 pub mod parsec;
 /// Functions defining votes API.
 pub mod vote;
 
-use super::{Request as ParsecReq, Response as ParsecResp};
 use mock;
 use network_event::NetworkEvent as NetEvent;
 
 pub(crate) type NetworkEvent = Vec<u8>;
 pub(crate) type PeerId = mock::PeerId;
 
-/// Secret peer signing key.
-pub struct SecretId(PeerId);
-/// Public peer signing key.
-pub struct PublicId(PeerId);
-
-/// Opaque structure holding a request from a peer.
-pub struct Request(ParsecReq<NetworkEvent, PeerId>);
-/// Opaque structure holding a response from a peer.
-pub struct Response(ParsecResp<NetworkEvent, PeerId>);
-
 impl NetEvent for Vec<u8> {}
 
 pub use ffi::block::*;
 pub use ffi::error::*;
+pub use ffi::message::*;
 pub use ffi::id::*;
 pub use ffi::parsec::*;
 pub use ffi::vote::*;

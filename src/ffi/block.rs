@@ -10,16 +10,21 @@
 
 use block::Block as NativeBlock;
 use error::Error;
-use ffi::utils::catch_unwind_err_set;
+use ffi::utils;
+use ffi_utils;
 use ffi::{NetworkEvent, PeerId, Proof, ProofList, PublicId, Vote};
 use std::collections::BTreeMap;
-use std::{mem, slice};
+use std::slice;
 
-/// Block FFI object.
+/// Serves as an opaque pointer to `Block` struct.
+///
+/// Should be deallocated with `block_free`.
 pub struct Block(pub(crate) NativeBlock<NetworkEvent, PeerId>);
 
 /// Create a new block from `payload` and the `public_ids` with their corresponding `votes`.
 /// `items_len` corresponds to a number of `votes` and `public_ids` which must be the same.
+///
+/// `o_block` must be freed using `block_free`.
 #[no_mangle]
 pub unsafe extern "C" fn block_new(
     payload: *const u8,
@@ -29,7 +34,7 @@ pub unsafe extern "C" fn block_new(
     items_len: usize,
     o_block: *mut *const Block,
 ) -> i32 {
-    catch_unwind_err_set(|| -> Result<_, Error> {
+    utils::catch_unwind_err_set(|| -> Result<_, Error> {
         let payload = slice::from_raw_parts(payload, payload_len).to_vec();
         let public_ids = slice::from_raw_parts(public_ids, items_len);
         let votes = slice::from_raw_parts(votes, items_len);
@@ -40,8 +45,8 @@ pub unsafe extern "C" fn block_new(
             let _ = votes_map.insert((**id).0.clone(), (**vote).0.clone());
         });
 
-        let block = Box::new(Block(NativeBlock::new(payload, &votes_map)?));
-        *o_block = Box::into_raw(block);
+        let block = Block(NativeBlock::new(payload, &votes_map)?);
+        *o_block = Box::into_raw(Box::new(block));
 
         Ok(())
     })
@@ -54,7 +59,7 @@ pub unsafe extern "C" fn block_payload(
     o_payload: *mut *const u8,
     o_payload_len: *mut usize,
 ) -> i32 {
-    catch_unwind_err_set(|| -> Result<_, Error> {
+    utils::catch_unwind_err_set(|| -> Result<_, Error> {
         let payload = (*block).0.payload();
 
         *o_payload = payload.as_ptr();
@@ -66,10 +71,10 @@ pub unsafe extern "C" fn block_payload(
 
 /// Returns the Proofs of this block.
 ///
-/// This block's Proofs should not be freed manually -- `block_free` takes care of that.
+/// `o_proofs` must be freed using `proof_list_free`.
 #[no_mangle]
-pub unsafe extern "C" fn block_proofs(block: *const Block, o_proofs: *mut ProofList) -> i32 {
-    catch_unwind_err_set(|| -> Result<_, Error> {
+pub unsafe extern "C" fn block_proofs(block: *const Block, o_proofs: *mut *const ProofList) -> i32 {
+    utils::catch_unwind_err_set(|| -> Result<_, Error> {
         let proofs: Vec<_> = (*block)
             .0
             .proofs()
@@ -77,13 +82,12 @@ pub unsafe extern "C" fn block_proofs(block: *const Block, o_proofs: *mut ProofL
             .map(|proof| Box::into_raw(Box::new(Proof(proof.clone()))))
             .collect();
 
-        *o_proofs = ProofList {
-            proofs: proofs.as_ptr() as *const _,
-            proofs_len: proofs.len(),
-            proofs_cap: proofs.capacity(),
-        };
-
-        mem::forget(proofs);
+        let (ptr, len, cap) = ffi_utils::vec_into_raw_parts(proofs);
+        *o_proofs = Box::into_raw(Box::new(ProofList {
+            proofs: ptr as *const _,
+            proofs_len: len,
+            proofs_cap: cap,
+        }));
 
         Ok(())
     })
@@ -91,8 +95,8 @@ pub unsafe extern "C" fn block_proofs(block: *const Block, o_proofs: *mut ProofL
 
 /// Converts `vote` to a `Proof` and attempts to add it to the block. Returns an error if `vote` is
 /// invalid (i.e. signature check fails or the `vote` is for a different network event). Sets
-/// `o_new_proof` to `1` if the `Proof` wasn't previously held in this `Block`, or `0` if it was
-/// previously held.
+/// `o_new_proof` to 1 (true) if the `Proof` wasn't previously held in this `Block`, or 0 (false) if
+/// it was previously held.
 #[no_mangle]
 pub unsafe extern "C" fn block_add_vote(
     block: *mut Block,
@@ -100,7 +104,7 @@ pub unsafe extern "C" fn block_add_vote(
     vote: *const Vote,
     o_new_proof: *mut u8,
 ) -> i32 {
-    catch_unwind_err_set(|| -> Result<_, Error> {
+    utils::catch_unwind_err_set(|| -> Result<_, Error> {
         *o_new_proof = (*block).0.add_vote(&(*peer_id).0, &(*vote).0)? as u8;
         Ok(())
     })
@@ -109,7 +113,7 @@ pub unsafe extern "C" fn block_add_vote(
 /// Frees this block and its associated data.
 #[no_mangle]
 pub unsafe extern "C" fn block_free(block: *mut Block) -> i32 {
-    catch_unwind_err_set(|| -> Result<_, Error> {
+    utils::catch_unwind_err_set(|| -> Result<_, Error> {
         let _ = Box::from_raw(block);
         Ok(())
     })
@@ -220,9 +224,9 @@ mod tests {
 
                 // Get list of proofs
                 let proof_list = unwrap!(utils::get_1(|out| block_proofs(block, out)));
-                assert_eq!(proof_list.proofs_len, ids_count);
+                assert_eq!((*proof_list).proofs_len, ids_count);
 
-                let proofs = slice::from_raw_parts(proof_list.proofs, proof_list.proofs_len);
+                let proofs = slice::from_raw_parts((*proof_list).proofs, (*proof_list).proofs_len);
 
                 for proof in proofs {
                     let is_valid = unwrap!(utils::get_1(|out| proof_is_valid(
@@ -236,7 +240,7 @@ mod tests {
                 }
 
                 // Free memory
-                assert_ffi!(proof_list_free(&proof_list));
+                assert_ffi!(proof_list_free(proof_list));
                 for id in public_ids {
                     assert_ffi!(public_id_free(id));
                 }

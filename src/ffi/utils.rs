@@ -115,7 +115,6 @@ where
     use procinfo;
 
     // Measure the amount of baseline memory.
-
     #[cfg(target_os = "linux")]
     let memory_before = {
         let memory_before = procinfo::pid::statm_self().unwrap().resident;
