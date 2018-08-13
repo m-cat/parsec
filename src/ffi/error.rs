@@ -40,14 +40,13 @@ pub(crate) fn err_set(error_code: i32, description: CString) {
     if let Some(err) = err_take() {
         // Drop the allocated data.
         let _ = unsafe { CString::from_raw(err.description as *mut _) };
-        // unsafe { drop(err); }
     }
 
     // Set the new error.
     LAST_ERROR.with(|last| {
         *last.borrow_mut() = Some(FfiResult {
             error_code,
-            description: description.as_ptr(),
+            description: description.into_raw(),
         });
     });
 }
@@ -59,5 +58,54 @@ fn err_take() -> Option<FfiResult> {
 
 #[cfg(test)]
 mod tests {
-    // TODO: write a couple basic tests
+    use error;
+    use ffi::*;
+    use std::ffi::CStr;
+
+    #[test]
+    fn ffi_error_api() {
+        utils::memory_check("ffi_error", 100, || {
+            let bytes = &[192];
+
+            unsafe {
+                // No error has occurred yet, should be null.
+                assert!(err_last().is_null());
+
+                // Generate and get the last error code.
+                let err_code = match utils::get_1(|out| {
+                    public_id_from_bytes(bytes.as_ptr(), bytes.len(), out)
+                }) {
+                    Ok(_) => panic!("Expected error code."),
+                    Err(e) => e,
+                };
+                assert_eq!(err_code, error::codes::ERR_UTF8);
+
+                // Get the last full error.
+                let err = err_last();
+                assert_eq!((*err).error_code, err_code);
+                assert_eq!(
+                    unwrap!(CStr::from_ptr((*err).description).to_str()),
+                    "Utf8 error: Utf8Error { valid_up_to: 0, error_len: Some(1) }"
+                );
+
+                // Ensure the last error did not get cleared.
+                assert!(!err_last().is_null());
+
+                // Generate and get another error code.
+                let err_code = match utils::get_1(|out| {
+                    public_id_from_bytes(bytes.as_ptr(), bytes.len(), out)
+                }) {
+                    Ok(_) => panic!("Expected error code."),
+                    Err(e) => e,
+                };
+                assert_eq!(err_code, error::codes::ERR_UTF8);
+
+                // Clear the error.
+                err_clear();
+
+                // Ensure the last error got cleared.
+                assert!(err_last().is_null());
+            }
+        })
+    }
 }

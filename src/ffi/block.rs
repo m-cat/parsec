@@ -128,7 +128,7 @@ mod tests {
 
     #[test]
     fn ffi_block_new() {
-        utils::memory_check("ffi_block_new", 10000, || {
+        utils::memory_check("ffi_block_new", 1000, || {
             let payload = b"hello world";
 
             unsafe {

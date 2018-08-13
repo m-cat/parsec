@@ -10,8 +10,7 @@
 
 use error::Error;
 use ffi::error;
-use std::fmt::Debug;
-use std::panic::{self, AssertUnwindSafe};
+use ffi_utils;
 use std::slice;
 
 #[macro_export]
@@ -28,23 +27,12 @@ macro_rules! assert_ffi {
     }};
 }
 
-fn catch_unwind_result<'a, F, T, E>(f: F) -> Result<T, E>
-where
-    F: FnOnce() -> Result<T, E>,
-    E: Debug + From<&'a str>,
-{
-    match panic::catch_unwind(AssertUnwindSafe(f)) {
-        Err(_) => Err(E::from("panic")),
-        Ok(result) => result,
-    }
-}
-
 /// Catches panics. On error sets the thread-local error message and returns the `i32` error code.
-pub fn catch_unwind_err_set<'a, F>(f: F) -> i32
+pub fn catch_unwind_err_set<F>(f: F) -> i32
 where
     F: FnOnce() -> Result<(), Error>,
 {
-    match catch_unwind_result(f) {
+    match ffi_utils::catch_unwind_result(f) {
         Err(err) => {
             let (error_code, description) = ffi_result!(Err::<(), Error>(err));
             error::err_set(error_code, description);
@@ -117,12 +105,12 @@ where
     // Measure the amount of baseline memory.
     #[cfg(target_os = "linux")]
     let memory_before = {
-        let memory_before = procinfo::pid::statm_self().unwrap().resident;
+        let memory_before = unwrap!(procinfo::pid::statm_self()).resident;
         memory_before
     };
 
     #[cfg(not(target_os = "linux"))]
-    println!("[{}] Linux required, skipping memory check.\n", test);
+    println!("[{}] Skipping memory check, Linux required.\n", test);
 
     for _ in 1..num_iterations {
         f();
@@ -131,9 +119,9 @@ where
     // Measure the amount of memory in use at the end.
     #[cfg(target_os = "linux")]
     {
-        let memory_after = procinfo::pid::statm_self().unwrap().resident;
+        let memory_after = unwrap!(procinfo::pid::statm_self()).resident;
         println!(
-            "\n[{}] Memory before: {}, memory after: {}",
+            "\n[{}] Memory before: {} pages, memory after: {} pages",
             test, memory_before, memory_after
         );
         if memory_before < memory_after {
@@ -141,6 +129,11 @@ where
                 "[{}] Warning: memory grew during the execution of this test. This is expected \
                  if running sanitizers, otherwise there is probably a leak.",
                 test
+            );
+            println!(
+                "[{}] Average memory leaked per iteration: {} pages",
+                test,
+                (memory_after - memory_before) as f64 / num_iterations as f64
             );
         }
     }

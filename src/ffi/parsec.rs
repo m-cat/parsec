@@ -53,7 +53,7 @@ pub unsafe extern "C" fn parsec_vote_for(
 ) -> i32 {
     utils::catch_unwind_err_set(|| -> Result<_, Error> {
         let network_event = slice::from_raw_parts(network_event, network_event_len).to_vec();
-        let _ = (*parsec).0.vote_for(network_event)?;
+        (*parsec).0.vote_for(network_event)?;
         Ok(())
     })
 }
@@ -159,4 +159,66 @@ pub unsafe extern "C" fn parsec_free(parsec: *mut Parsec) -> i32 {
         let _ = Box::from_raw(parsec);
         Ok(())
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use ffi::*;
+
+    #[test]
+    fn ffi_parsec_new() {
+        utils::memory_check("ffi_error", 100, || {
+            let bytes = b"test";
+            let net_event = b"event";
+
+            unsafe {
+                let secret_id = unwrap!(utils::get_1(|out| secret_id_from_bytes(
+                    bytes.as_ptr(),
+                    bytes.len(),
+                    out
+                )));
+                let public_id = unwrap!(utils::get_1(|out| public_id_from_bytes(
+                    bytes.as_ptr(),
+                    bytes.len(),
+                    out
+                )));
+                let group = &[public_id];
+
+                let parsec = unwrap!(utils::get_1(|out| parsec_new(
+                    secret_id,
+                    group.as_ptr(),
+                    group.len(),
+                    out
+                )));
+
+                let voted_for = unwrap!(utils::get_1(|out| parsec_have_voted_for(
+                    parsec,
+                    net_event.as_ptr(),
+                    net_event.len(),
+                    out
+                )));
+                assert_eq!(voted_for, 0);
+
+                // FIXME: Memory leak in this function call.
+                unwrap!(utils::get_0(|| parsec_vote_for(
+                    parsec,
+                    net_event.as_ptr(),
+                    net_event.len(),
+                )));
+
+                let voted_for = unwrap!(utils::get_1(|out| parsec_have_voted_for(
+                    parsec,
+                    net_event.as_ptr(),
+                    net_event.len(),
+                    out
+                )));
+                assert_eq!(voted_for, 1);
+
+                // Free everything.
+                unwrap!(utils::get_0(|| secret_id_free(secret_id)));
+                unwrap!(utils::get_0(|| public_id_free(public_id)));
+                unwrap!(utils::get_0(|| parsec_free(parsec)));
+            }
+        })
+    }
 }

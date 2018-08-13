@@ -74,7 +74,7 @@ quick_error! {
 }
 
 #[allow(missing_docs)]
-mod codes {
+pub mod codes {
     pub const ERR_MISMATCHED_PAYLOAD: i32 = -1;
     pub const ERR_SIGNATURE_FAILURE: i32 = -2;
     pub const ERR_SERIALISATION: i32 = -3;

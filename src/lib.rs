@@ -36,6 +36,9 @@
 
 #[macro_use]
 extern crate ffi_utils;
+#[cfg(feature = "dump-graphs")]
+#[macro_use]
+extern crate lazy_static;
 #[macro_use]
 extern crate log;
 extern crate maidsafe_utilities;

@@ -119,7 +119,7 @@ mod tests {
 
     #[test]
     fn ffi_vote_new() {
-        utils::memory_check("ffi_vote_new", 10000, || {
+        utils::memory_check("ffi_vote_new", 1000, || {
             let secret_id_bytes = b"hello";
             let public_id_bytes = b"howdy";
             let payload = b"testing";
