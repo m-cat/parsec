@@ -30,6 +30,7 @@
 )]
 
 extern crate maidsafe_utilities;
+#[macro_use]
 extern crate parsec;
 extern crate rand;
 #[macro_use]
@@ -38,8 +39,8 @@ extern crate unwrap;
 mod utils;
 
 use self::utils::{
-    DelayDistribution, Environment, GossipStrategy, PeerCount, Schedule, ScheduleOptions,
-    TransactionCount,
+    DelayDistribution, Environment, GossipStrategy, ParsecFfiImpl, ParsecRustImpl, PeerCount,
+    Schedule, ScheduleOptions, TransactionCount,
 };
 use rand::Rng;
 use std::collections::BTreeMap;
@@ -51,7 +52,28 @@ static SEED: Option<[u32; 4]> = None;
 fn minimal_network() {
     // 4 is the minimal network size for which the super majority is less than it.
     let num_peers = 4;
-    let mut env = Environment::new(&PeerCount(num_peers), &TransactionCount(1), SEED);
+    let mut env =
+        Environment::<ParsecRustImpl>::new(&PeerCount(num_peers), &TransactionCount(1), SEED);
+
+    let schedule = Schedule::new(
+        &mut env,
+        &ScheduleOptions {
+            votes_before_gossip: true,
+            ..Default::default()
+        },
+    );
+    env.network.execute_schedule(schedule);
+
+    let result = env.network.blocks_all_in_sequence();
+    assert!(result.is_ok(), "{:?}", result);
+}
+
+#[test]
+fn ffi_minimal_network() {
+    // 4 is the minimal network size for which the super majority is less than it.
+    let num_peers = 4;
+    let mut env =
+        Environment::<ParsecFfiImpl>::new(&PeerCount(num_peers), &TransactionCount(1), SEED);
 
     let schedule = Schedule::new(
         &mut env,
@@ -69,7 +91,30 @@ fn minimal_network() {
 #[test]
 fn multiple_votes_before_gossip() {
     let num_transactions = 10;
-    let mut env = Environment::new(&PeerCount(4), &TransactionCount(num_transactions), SEED);
+    let mut env = Environment::<ParsecRustImpl>::new(
+        &PeerCount(4),
+        &TransactionCount(num_transactions),
+        SEED,
+    );
+
+    let schedule = Schedule::new(
+        &mut env,
+        &ScheduleOptions {
+            votes_before_gossip: true,
+            ..Default::default()
+        },
+    );
+    env.network.execute_schedule(schedule);
+
+    let result = env.network.blocks_all_in_sequence();
+    assert!(result.is_ok(), "{:?}", result);
+}
+
+#[test]
+fn ffi_multiple_votes_before_gossip() {
+    let num_transactions = 10;
+    let mut env =
+        Environment::<ParsecFfiImpl>::new(&PeerCount(4), &TransactionCount(num_transactions), SEED);
 
     let schedule = Schedule::new(
         &mut env,
@@ -87,7 +132,24 @@ fn multiple_votes_before_gossip() {
 #[test]
 fn multiple_votes_during_gossip() {
     let num_transactions = 10;
-    let mut env = Environment::new(&PeerCount(4), &TransactionCount(num_transactions), SEED);
+    let mut env = Environment::<ParsecRustImpl>::new(
+        &PeerCount(4),
+        &TransactionCount(num_transactions),
+        SEED,
+    );
+
+    let schedule = Schedule::new(&mut env, &Default::default());
+    env.network.execute_schedule(schedule);
+
+    let result = env.network.blocks_all_in_sequence();
+    assert!(result.is_ok(), "{:?}", result);
+}
+
+#[test]
+fn ffi_multiple_votes_during_gossip() {
+    let num_transactions = 10;
+    let mut env =
+        Environment::<ParsecFfiImpl>::new(&PeerCount(4), &TransactionCount(num_transactions), SEED);
 
     let schedule = Schedule::new(&mut env, &Default::default());
     env.network.execute_schedule(schedule);
@@ -98,7 +160,25 @@ fn multiple_votes_during_gossip() {
 
 #[test]
 fn duplicate_votes_before_gossip() {
-    let mut env = Environment::new(&PeerCount(4), &TransactionCount(1), SEED);
+    let mut env = Environment::<ParsecRustImpl>::new(&PeerCount(4), &TransactionCount(1), SEED);
+
+    let schedule = Schedule::new(
+        &mut env,
+        &ScheduleOptions {
+            votes_before_gossip: true,
+            prob_vote_duplication: 0.5,
+            ..Default::default()
+        },
+    );
+    env.network.execute_schedule(schedule);
+
+    let result = env.network.blocks_all_in_sequence();
+    assert!(result.is_ok(), "{:?}", result);
+}
+
+#[test]
+fn ffi_duplicate_votes_before_gossip() {
+    let mut env = Environment::<ParsecFfiImpl>::new(&PeerCount(4), &TransactionCount(1), SEED);
 
     let schedule = Schedule::new(
         &mut env,
@@ -119,7 +199,33 @@ fn faulty_third_never_gossip() {
     let num_peers = 10;
     let num_transactions = 10;
     let num_faulty = (num_peers - 1) / 3;
-    let mut env = Environment::new(
+    let mut env = Environment::<ParsecRustImpl>::new(
+        &PeerCount(num_peers),
+        &TransactionCount(num_transactions),
+        SEED,
+    );
+
+    let mut failures = BTreeMap::new();
+    let _ = failures.insert(0, num_faulty);
+    let schedule = Schedule::new(
+        &mut env,
+        &ScheduleOptions {
+            deterministic_failures: failures,
+            ..Default::default()
+        },
+    );
+    env.network.execute_schedule(schedule);
+
+    let result = env.network.blocks_all_in_sequence();
+    assert!(result.is_ok(), "{:?}", result);
+}
+
+#[test]
+fn ffi_faulty_third_never_gossip() {
+    let num_peers = 10;
+    let num_transactions = 10;
+    let num_faulty = (num_peers - 1) / 3;
+    let mut env = Environment::<ParsecFfiImpl>::new(
         &PeerCount(num_peers),
         &TransactionCount(num_transactions),
         SEED,
@@ -145,7 +251,33 @@ fn faulty_third_terminate_concurrently() {
     let num_peers = 10;
     let num_transactions = 10;
     let num_faulty = (num_peers - 1) / 3;
-    let mut env = Environment::new(
+    let mut env = Environment::<ParsecRustImpl>::new(
+        &PeerCount(num_peers),
+        &TransactionCount(num_transactions),
+        SEED,
+    );
+
+    let mut failures = BTreeMap::new();
+    let _ = failures.insert(env.rng.gen_range(10, 50), num_faulty);
+    let schedule = Schedule::new(
+        &mut env,
+        &ScheduleOptions {
+            deterministic_failures: failures,
+            ..Default::default()
+        },
+    );
+    env.network.execute_schedule(schedule);
+
+    let result = env.network.blocks_all_in_sequence();
+    assert!(result.is_ok(), "{:?}", result);
+}
+
+#[test]
+fn ffi_faulty_third_terminate_concurrently() {
+    let num_peers = 10;
+    let num_transactions = 10;
+    let num_faulty = (num_peers - 1) / 3;
+    let mut env = Environment::<ParsecFfiImpl>::new(
         &PeerCount(num_peers),
         &TransactionCount(num_transactions),
         SEED,
@@ -171,7 +303,7 @@ fn faulty_nodes_terminate_at_random_points() {
     let num_peers = 10;
     let num_transactions = 10;
     let prob_failure = 0.05;
-    let mut env = Environment::new(
+    let mut env = Environment::<ParsecRustImpl>::new(
         &PeerCount(num_peers),
         &TransactionCount(num_transactions),
         SEED,
@@ -192,7 +324,11 @@ fn faulty_nodes_terminate_at_random_points() {
 #[test]
 fn random_schedule_no_delays() {
     let num_transactions = 10;
-    let mut env = Environment::new(&PeerCount(4), &TransactionCount(num_transactions), SEED);
+    let mut env = Environment::<ParsecRustImpl>::new(
+        &PeerCount(4),
+        &TransactionCount(num_transactions),
+        SEED,
+    );
     let schedule = Schedule::new(
         &mut env,
         &ScheduleOptions {
@@ -209,7 +345,11 @@ fn random_schedule_no_delays() {
 #[test]
 fn random_schedule_probabilistic_gossip() {
     let num_transactions = 10;
-    let mut env = Environment::new(&PeerCount(4), &TransactionCount(num_transactions), SEED);
+    let mut env = Environment::<ParsecRustImpl>::new(
+        &PeerCount(4),
+        &TransactionCount(num_transactions),
+        SEED,
+    );
     let schedule = Schedule::new(
         &mut env,
         &ScheduleOptions {

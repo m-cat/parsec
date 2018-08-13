@@ -7,6 +7,7 @@
 // permissions and limitations relating to use of the SAFE Network Software.
 
 use super::Environment;
+use super::ParsecImpl;
 use parsec::mock::{PeerId, Transaction};
 #[cfg(feature = "dump-graphs")]
 use parsec::DIR;
@@ -408,7 +409,7 @@ impl Schedule {
     }
 
     /// Creates a new pseudo-random schedule based on the given options
-    pub fn new(env: &mut Environment, options: &ScheduleOptions) -> Schedule {
+    pub fn new<P: ParsecImpl>(env: &mut Environment<P>, options: &ScheduleOptions) -> Schedule {
         let mut peers: Vec<_> = env.network.peers.iter().map(|p| p.id.clone()).collect();
         let num_peers = env.network.peers.len();
         let mut pending = PendingTransactions::new(&mut env.rng, &peers, &env.transactions);

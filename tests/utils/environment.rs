@@ -6,6 +6,7 @@
 // KIND, either express or implied. Please review the Licences for the specific language governing
 // permissions and limitations relating to use of the SAFE Network Software.
 
+use super::ParsecImpl;
 use maidsafe_utilities::SeededRng;
 use parsec::mock::Transaction;
 use rand::Rng;
@@ -14,13 +15,13 @@ use utils::Network;
 pub struct PeerCount(pub usize);
 pub struct TransactionCount(pub usize);
 
-pub struct Environment {
-    pub network: Network,
+pub struct Environment<P: ParsecImpl> {
+    pub network: Network<P>,
     pub transactions: Vec<Transaction>,
     pub rng: SeededRng,
 }
 
-impl Environment {
+impl<P: ParsecImpl> Environment<P> {
     /// Initialise the test environment with the given number of peers and transactions.  The random
     /// number generator will be seeded with `seed` or randomly if this is `None`.
     pub fn new(

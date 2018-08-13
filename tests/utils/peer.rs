@@ -6,23 +6,23 @@
 // KIND, either express or implied. Please review the Licences for the specific language governing
 // permissions and limitations relating to use of the SAFE Network Software.
 
+use super::{BlockImpl, ParsecImpl};
 use parsec::mock::{PeerId, Transaction};
-use parsec::{Block, Parsec};
 use std::collections::BTreeSet;
 use std::fmt::{self, Debug, Formatter};
 
-pub struct Peer {
+pub struct Peer<P: ParsecImpl> {
     pub id: PeerId,
-    pub parsec: Parsec<Transaction, PeerId>,
+    pub parsec: P,
     // The blocks returned by `parsec.poll()`, held in the order in which they were returned.
-    pub blocks: Vec<Block<Transaction, PeerId>>,
+    pub blocks: Vec<P::Block>,
 }
 
-impl Peer {
+impl<P: ParsecImpl> Peer<P> {
     pub fn new(id: PeerId, genesis_group: &BTreeSet<PeerId>) -> Self {
         Self {
             id: id.clone(),
-            parsec: unwrap!(Parsec::new(id, genesis_group)),
+            parsec: P::new(id, genesis_group),
             blocks: vec![],
         }
     }
@@ -43,12 +43,12 @@ impl Peer {
     }
 
     // Returns the payloads of `self.blocks` in the order in which they were returned by `poll()`.
-    pub fn blocks_payloads(&self) -> Vec<&Transaction> {
-        self.blocks.iter().map(Block::payload).collect()
+    pub fn blocks_payloads(&self) -> Vec<Transaction> {
+        self.blocks.iter().map(P::Block::payload).collect()
     }
 }
 
-impl Debug for Peer {
+impl<P: ParsecImpl> Debug for Peer<P> {
     fn fmt(&self, formatter: &mut Formatter) -> fmt::Result {
         write!(formatter, "{:?}: Blocks: {:?}", self.id, self.blocks)
     }

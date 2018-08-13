@@ -16,6 +16,7 @@ use std::hash::Hash;
 pub trait PublicId: Clone + Eq + Ord + Hash + Serialize + DeserializeOwned + Debug {
     /// The signature type associated with the chosen asymmetric key scheme.
     type Signature: Clone + Eq + Ord + Hash + Serialize + DeserializeOwned + Debug;
+
     /// Verifies `signature` against `data` using this `PublicId`.  Returns `true` if valid.
     fn verify_signature(&self, signature: &Self::Signature, data: &[u8]) -> bool;
 }

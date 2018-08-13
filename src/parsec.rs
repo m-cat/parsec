@@ -33,7 +33,7 @@ pub struct Parsec<T: NetworkEvent, S: SecretId> {
     events_with_valid_blocks: BTreeMap<S::PublicId, VecDeque<Hash>>,
     // Consensused network events that have not been returned via `poll()` yet.
     consensused_blocks: VecDeque<Block<T, S::PublicId>>,
-    // Hash of all payloads that were consensused ever
+    // Hash of all payloads that were consensused ever.
     consensus_history: Vec<Hash>,
     // The meta votes of the events.
     meta_votes: BTreeMap<Hash, BTreeMap<S::PublicId, Vec<MetaVote>>>,

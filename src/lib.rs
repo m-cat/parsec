@@ -34,10 +34,13 @@
     variant_size_differences
 )]
 
-#[cfg(feature = "dump-graphs")]
 #[macro_use]
-extern crate lazy_static;
+extern crate ffi_utils;
+#[macro_use]
+extern crate log;
 extern crate maidsafe_utilities;
+#[cfg(all(test, target_os = "linux"))]
+extern crate procinfo;
 #[macro_use]
 extern crate quick_error;
 extern crate rand;
@@ -45,6 +48,8 @@ extern crate serde;
 #[macro_use]
 extern crate serde_derive;
 extern crate tiny_keccak;
+#[macro_use]
+extern crate unwrap;
 
 mod block;
 mod dump_graph;
@@ -58,6 +63,8 @@ mod parsec;
 mod peer_manager;
 mod round_hash;
 mod vote;
+
+pub mod ffi;
 
 #[doc(hidden)]
 /// **NOT FOR PRODUCTION USE**: Mock types which trivially implement the required Parsec traits.
